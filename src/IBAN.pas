@@ -25,6 +25,7 @@ type
     class function GetIBAN(AnAccount, AMFO: string; ACountryCode : string = 'UA'): string;
     // Перевірити IBAN
     class function Validate(AnIBAN: String): Boolean;
+    class function SilentValidate(AnIBAN: String): Boolean;
   end;
 
   TIBANUtils= class
@@ -57,7 +58,7 @@ var i : integer;
 begin
   Result := True;
   for i := 1 to Length(AValue) do
-    if not (AValue[i] in charSet) then
+    if not CharInSet(AValue[i], charSet) then
     begin
       Result := False;
       break;
@@ -86,6 +87,7 @@ type
     function Validate : boolean;
     function CountryToIBANTable: string;
   public
+    Silent      : boolean;
     CountryCode : string;
     MFO         : string;
     Account     : string;
@@ -104,9 +106,18 @@ begin
   Result := Rec.toString;
 end;
 
+class function TIBAN.SilentValidate(AnIBAN: String): Boolean;
+var Rec : TIBANRecord;
+begin
+  Rec.Silent := True;
+  Rec.Init(AnIBAN);
+  Result := Rec.isValid;
+end;
+
 class function TIBAN.Validate(AnIBAN: String): Boolean;
 var Rec : TIBANRecord;
 begin
+  Rec.Silent := False;
   Rec.Init(AnIBAN);
   Result := Rec.isValid;
 end;
@@ -215,7 +226,7 @@ function TIBANRecord.CountryToIBANTable: string;
   var  iValue: byte;
   begin
     Result := Value;
-    if (Value in ['A'..'Z']) then
+    if CharInSet(Value, ['A'..'Z']) then
     begin
        iValue := (byte(Value) - byte(Initial_A)) + 10;
        result := IntToStr(iValue);
@@ -243,7 +254,8 @@ begin
   Self.DC          := Copy(Self.IBAN, 3,2);
   Self.MFO         := Copy(Self.IBAN, 5,6);
   Self.Account     := Copy(Self.IBAN, 11);
-  CheckFields;
+  if not Silent then
+    CheckFields;
   AValidator := Self.MFO + Self.Account + Self.CountryToIBANTable + Self.DC;
   FValid := TIBANUtils.Mod97(AValidator) = 1;
   Result := FValid;
